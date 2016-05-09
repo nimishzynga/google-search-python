@@ -13,7 +13,8 @@ from collections import OrderedDict
 import requests
 
 LOG = logging.getLogger('sw.google_search')
-
+logging.basicConfig()
+LOG.setLevel("INFO")
 
 def _decode_response(json_string):
     response = json.loads(json_string)
@@ -49,17 +50,19 @@ class GoogleCustomSearch(object):
         self.search_engine_id = search_engine_id
         self.api_key = api_key
 
-    def search(self, keyword, site=None, max_results=100):
+    def search(self, keyword, site=None, max_results=100, start=1):
         assert isinstance(keyword, basestring)
 
-        for start_index in range(1, max_results, 10):  # 10 is max page size
+        for start_index in range(start, start+max_results-1, 10):  # 10 is max page size
             url = self._make_url(start_index, keyword, site)
-            logging.info(url)
+            print url
+            #LOG.info(url)
 
-            response = requests.get(url)
+            response = requests.get(url, verify=False)
             if response.status_code == 403:
                 LOG.info(response.content)
             response.raise_for_status()
+            #print "got content", response.content
             for search_result in _decode_response(response.content):
                 yield search_result
                 if 'nextPage' not in search_result['meta']['queries']:
@@ -80,10 +83,8 @@ class GoogleCustomSearch(object):
             ('num', '10'),
             ('googlehost', 'www.google.com'),
             ('gss', '.com'),
-            ('q', keyword),
-            ('oq', keyword),
-            ('filter', '0'),  # duplicate content filter, 1 | 0
-            ('safe', 'off'),  # strict | moderate | off
+            ('start', start_index),
+            ('q', keyword)
         ])
         #if restrict_to_site is not None:
         #    params['siteSearch'] = _strip_protocol(restrict_to_site)
